@@ -34,6 +34,17 @@ const KAHOOT_COLORS = [
   { bg: "#e91e63", text: "#fff" }  // Pink
 ];
 
+const GAME_AVATARS = [
+  "🦊", "🐼", "🐯", "🦁", "🚀", "⚡", "🥑", "🎮",
+  "🦄", "🍕", "🎯", "👾", "🐸", "🐨", "🔥", "💎", "⭐", "🐙"
+];
+
+const FUN_NICKNAMES = [
+  "MasterSudoku", "NinjaAngka", "Kilat99", "OtakEinstein", "RajaPapan",
+  "KancilCerdas", "DewaLogika", "SiPalingCepat", "KaptenSudoku", "JagoanAngka",
+  "DetektifKotak", "SuperSolver", "BintangGrid", "GamerCerdas", "PahlawanGrid"
+];
+
 function getPlayerKahootColor(nameOrId) {
   let hash = 0;
   const str = String(nameOrId || "player");
@@ -42,6 +53,16 @@ function getPlayerKahootColor(nameOrId) {
     hash |= 0;
   }
   return KAHOOT_COLORS[Math.abs(hash) % KAHOOT_COLORS.length];
+}
+
+function getPlayerAvatar(nameOrId) {
+  let hash = 0;
+  const str = String(nameOrId || "player");
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return GAME_AVATARS[Math.abs(hash) % GAME_AVATARS.length];
 }
 
 // Leaderboard data: { player_id: { id, name, progress, mistakes, eliminated, finished, finish_time } }
@@ -74,14 +95,26 @@ const gameContainer = document.getElementById("gameContainer");
 const playerAvatarHero = document.getElementById("playerAvatarHero");
 const playerNameHero = document.getElementById("playerNameHero");
 
+const joinAvatarPreview = document.getElementById("joinAvatarPreview");
+const btnRandomNick = document.getElementById("btnRandomNick");
+
 function updateHeroCard() {
   if (playerNameHero) playerNameHero.textContent = playerName || "Pemain";
   if (playerAvatarHero) {
-    const initial = (playerName || "?").charAt(0).toUpperCase();
-    const col = getPlayerKahootColor(playerName);
-    playerAvatarHero.textContent = initial;
+    const avatar = getPlayerAvatar(playerName || "player");
+    const col = getPlayerKahootColor(playerName || "player");
+    playerAvatarHero.textContent = avatar;
     playerAvatarHero.style.background = col.bg;
   }
+}
+
+function updateJoinAvatarPreview() {
+  if (!joinAvatarPreview) return;
+  const val = nicknameInput ? nicknameInput.value.trim() : "";
+  const avatar = getPlayerAvatar(val || "Sudoku");
+  const col = getPlayerKahootColor(val || "Sudoku");
+  joinAvatarPreview.textContent = avatar;
+  joinAvatarPreview.style.background = col.bg;
 }
 
 // Initialize Grid (81 cells)
@@ -621,10 +654,10 @@ function renderLobby() {
   lobbyPlayers.innerHTML = list.map(p => {
     const isMe = p.id === playerId;
     const col = getPlayerKahootColor(p.id || p.name);
-    const initial = escapeHtml((p.name || "?").charAt(0).toUpperCase());
+    const avatar = getPlayerAvatar(p.id || p.name);
     return `
       <div class="k-lobby-player-chip${isMe ? " k-chip-me" : ""}" style="--chip-bg: ${col.bg};">
-        <span class="k-p-chip-avatar">${initial}</span>
+        <span class="k-p-chip-avatar">${avatar}</span>
         <span class="k-p-chip-name">${escapeHtml(p.name)}${isMe ? ' <span class="k-chip-you">(Anda)</span>' : ""}</span>
         <span class="k-p-chip-ready">✓ Siap</span>
       </div>`;
@@ -928,6 +961,52 @@ document.querySelectorAll(".num-btn").forEach(btn => {
 });
 
 btnNotes.addEventListener("click", () => setNotesMode(!notesMode));
+
+// Random Nickname generator & Avatar preview
+if (btnRandomNick) {
+  btnRandomNick.addEventListener("click", () => {
+    const randomName = FUN_NICKNAMES[Math.floor(Math.random() * FUN_NICKNAMES.length)];
+    if (nicknameInput) {
+      nicknameInput.value = randomName;
+      updateJoinAvatarPreview();
+      nicknameInput.focus();
+    }
+  });
+}
+
+if (nicknameInput) {
+  nicknameInput.addEventListener("input", updateJoinAvatarPreview);
+  if (nicknameInput.value.trim()) {
+    updateJoinAvatarPreview();
+  } else if (playerName) {
+    nicknameInput.value = playerName;
+    updateJoinAvatarPreview();
+  } else {
+    updateJoinAvatarPreview();
+  }
+}
+
+// Floating emoji reactions handler
+function spawnFloatingEmoji(emoji) {
+  const container = document.getElementById("floatingReactionLayer");
+  if (!container) return;
+  const el = document.createElement("div");
+  el.className = "floating-emoji-item";
+  el.textContent = emoji;
+  const randomX = Math.floor(Math.random() * 70) + 15;
+  el.style.left = `${randomX}%`;
+  container.appendChild(el);
+  setTimeout(() => {
+    if (el.parentNode) el.parentNode.removeChild(el);
+  }, 2200);
+}
+
+document.querySelectorAll(".k-btn-hype").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const emoji = btn.dataset.emoji || "🔥";
+    spawnFloatingEmoji(emoji);
+  });
+});
 
 Chat.init(playerId, (text) => {
   if (socket && socket.readyState === WebSocket.OPEN) {

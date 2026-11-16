@@ -4,34 +4,44 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Sudoku Multiplayer Race</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body class="player-body">
+
+  <!-- Floating reaction particles container -->
+  <div id="floatingReactionLayer" class="floating-reaction-layer" aria-hidden="true"></div>
 
   <!-- ================================================= -->
   <!-- 1. KAHOOT-STYLE JOIN PAGE (Dedicated Screen)      -->
   <!-- ================================================= -->
   <section id="joinModal" class="kahoot-player-page join-page">
-    <div class="k-floating-shapes" aria-hidden="true">
-      <span class="k-float-shape s1">▲</span>
-      <span class="k-float-shape s2">●</span>
-      <span class="k-float-shape s3">◼</span>
-      <span class="k-float-shape s4">◆</span>
+    <div class="k-ambient-backdrop" aria-hidden="true">
+      <div class="k-glow-orb orb-1"></div>
+      <div class="k-glow-orb orb-2"></div>
     </div>
 
     <div class="kahoot-join-box">
-      <div class="k-player-logo">
-        <span class="k-logo-lightning">⚡</span>
+      <!-- Live avatar preview badge based on typed nickname -->
+      <div class="k-player-logo-wrap">
+        <div id="joinAvatarPreview" class="k-avatar-preview-badge">🎮</div>
       </div>
       <h1 class="k-player-title">Sudoku Race</h1>
       <p class="k-player-subtitle">Kompetisi Sudoku Multiplayer Real-Time</p>
 
       <div class="k-input-group">
-        <label for="nicknameInput" class="k-input-label">Nickname Kamu</label>
-        <input type="text" id="nicknameInput" class="k-nickname-input" placeholder="Ketik nama kamu di sini..." maxlength="15" autocomplete="off" autofocus>
-        <button id="btnJoin" class="k-btn-join">
-          <span>Masuk ke Game</span>
-          <span class="k-arrow">➔</span>
+        <div class="k-label-row">
+          <label for="nicknameInput" class="k-input-label">Nickname Kamu</label>
+          <button type="button" id="btnRandomNick" class="k-btn-random-nick" title="Acak Nama Unik">🎲 Acak Nama</button>
+        </div>
+        <div class="k-input-wrap">
+          <input type="text" id="nicknameInput" class="k-nickname-input" placeholder="Ketik nama kamu..." maxlength="15" autocomplete="off" autofocus>
+        </div>
+        <button id="btnJoin" class="k-btn-join k-btn-3d">
+          <span>Masuk ke Arena</span>
+          <span class="k-arrow">🚀</span>
         </button>
       </div>
 
@@ -47,11 +57,9 @@
   <!-- 2. KAHOOT-STYLE WAITING LOBBY (Dedicated Screen)  -->
   <!-- ================================================= -->
   <section id="lobbyScreen" class="kahoot-player-page lobby-page" style="display: none;">
-    <div class="k-floating-shapes" aria-hidden="true">
-      <span class="k-float-shape s1">▲</span>
-      <span class="k-float-shape s2">●</span>
-      <span class="k-float-shape s3">◼</span>
-      <span class="k-float-shape s4">◆</span>
+    <div class="k-ambient-backdrop" aria-hidden="true">
+      <div class="k-glow-orb orb-1"></div>
+      <div class="k-glow-orb orb-2"></div>
     </div>
 
     <div class="k-player-lobby-content">
@@ -68,14 +76,28 @@
 
       <!-- "You're In" Hero Card -->
       <div class="k-youre-in-card">
-        <div id="playerAvatarHero" class="k-player-avatar-hero">?</div>
-        <div class="k-in-badge">Kamu sudah bergabung! 🎉</div>
+        <div class="k-hero-avatar-halo">
+          <div id="playerAvatarHero" class="k-player-avatar-hero">🎮</div>
+        </div>
+        <div class="k-in-badge">✨ Kamu Sudah Bergabung!</div>
         <h2 id="playerNameHero" class="k-player-name-hero">Pemain</h2>
-        <p class="k-in-subtext">Lihat namamu tampil di layar Host! 👀</p>
+        <p class="k-in-subtext">Namamu sudah tampil di layar Host! 👀</p>
 
         <div class="k-waiting-indicator">
-          <span class="k-pulse-circle"></span>
+          <span class="k-pulse-beacon"></span>
           <span class="k-waiting-text">Menunggu host memulai permainan...</span>
+        </div>
+
+        <!-- Interactive waiting hype buttons -->
+        <div class="k-hype-section">
+          <span class="k-hype-label">Kirim Reaksi:</span>
+          <div class="k-hype-buttons">
+            <button class="k-btn-hype" data-emoji="🔥" title="Semangat!">🔥</button>
+            <button class="k-btn-hype" data-emoji="👏" title="Tepuk Tangan">👏</button>
+            <button class="k-btn-hype" data-emoji="😎" title="Santai">😎</button>
+            <button class="k-btn-hype" data-emoji="🚀" title="Gasss!">🚀</button>
+            <button class="k-btn-hype" data-emoji="🎉" title="Pesta">🎉</button>
+          </div>
         </div>
       </div>
 

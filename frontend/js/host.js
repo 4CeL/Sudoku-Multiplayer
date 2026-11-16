@@ -17,6 +17,11 @@ const KAHOOT_COLORS = [
   { bg: "#e91e63", text: "#fff" }  // Pink
 ];
 
+const GAME_AVATARS = [
+  "🦊", "🐼", "🐯", "🦁", "🚀", "⚡", "🥑", "🎮",
+  "🦄", "🍕", "🎯", "👾", "🐸", "🐨", "🔥", "💎", "⭐", "🐙"
+];
+
 function getPlayerKahootColor(nameOrId) {
   let hash = 0;
   const str = String(nameOrId || "player");
@@ -25,6 +30,16 @@ function getPlayerKahootColor(nameOrId) {
     hash |= 0;
   }
   return KAHOOT_COLORS[Math.abs(hash) % KAHOOT_COLORS.length];
+}
+
+function getPlayerAvatar(nameOrId) {
+  let hash = 0;
+  const str = String(nameOrId || "player");
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return GAME_AVATARS[Math.abs(hash) % GAME_AVATARS.length];
 }
 
 // DOM Elements - Views
@@ -149,9 +164,9 @@ function renderLobbyRoster() {
   if (count === 0) {
     lobbyPlayerGrid.innerHTML = `
       <div class="k-empty-roster">
-        <div class="k-empty-icon">🎮</div>
-        <div class="k-empty-title">Belum ada pemain yang bergabung</div>
-        <div class="k-empty-sub">Minta pemain scan barcode di atas atau buka link browser untuk bergabung!</div>
+        <div class="k-empty-icon">🛋️</div>
+        <div class="k-empty-title">Panggung Masih Sepi Nih...</div>
+        <div class="k-empty-sub">Ajak teman-teman scan barcode atau buka link di atas untuk bertanding serentak!</div>
       </div>
     `;
     if (btnLobbyStart) {
@@ -168,15 +183,18 @@ function renderLobbyRoster() {
     btnLobbyStart.classList.add("ready");
   }
   if (lobbyStartHint) {
-    lobbyStartHint.textContent = `Siap! ${count} pemain sudah bergabung. Klik untuk mulai!`;
+    lobbyStartHint.textContent = `🚀 Gas! ${count} pemain sudah siap di arena. Klik untuk mulai!`;
   }
 
-  lobbyPlayerGrid.innerHTML = players.map(p => {
+  const ROTATIONS = [-1.5, 1.2, -0.8, 1.8, -1.2, 0.9];
+
+  lobbyPlayerGrid.innerHTML = players.map((p, idx) => {
     const col = getPlayerKahootColor(p.id || p.name);
-    const initial = escapeHtml((p.name || "?").charAt(0).toUpperCase());
+    const avatar = getPlayerAvatar(p.id || p.name);
+    const rot = ROTATIONS[idx % ROTATIONS.length];
     return `
-      <div class="k-player-chip" style="--chip-bg: ${col.bg};" data-pid="${p.id}">
-        <span class="k-chip-avatar">${initial}</span>
+      <div class="k-player-chip" style="--chip-bg: ${col.bg}; --chip-rot: ${rot}deg;" data-pid="${p.id}">
+        <span class="k-chip-avatar">${avatar}</span>
         <span class="k-chip-name">${escapeHtml(p.name)}</span>
         <button class="k-chip-kick" title="Keluarkan ${escapeHtml(p.name)}" onclick="kickPlayer('${p.id}')">✕</button>
       </div>

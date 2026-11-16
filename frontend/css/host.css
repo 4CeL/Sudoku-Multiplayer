@@ -249,34 +249,48 @@
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
-/* Floating Decorative Shapes */
-.k-floating-shapes {
+/* Ambient Backdrop Glow for lively organic depth */
+.k-ambient-backdrop {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
   overflow: hidden;
+  background-image: radial-gradient(#cbd5e1 1.2px, transparent 1.2px);
+  background-size: 28px 28px;
+  opacity: 0.55;
 }
-.k-float-shape {
-  position: absolute;
-  color: rgba(99, 102, 241, 0.08);
-  font-size: 3rem;
-  user-select: none;
-  animation: floatShapes 7s ease-in-out infinite alternate;
-}
-.k-float-shape.s1 { top: 6%; left: 3%; animation-delay: 0s; font-size: 3.5rem; color: rgba(236, 72, 153, 0.09); }
-.k-float-shape.s2 { top: 16%; right: 4%; animation-delay: 1.5s; font-size: 4rem; color: rgba(59, 130, 246, 0.09); }
-.k-float-shape.s3 { bottom: 12%; left: 6%; animation-delay: 2.5s; font-size: 3.2rem; color: rgba(16, 185, 129, 0.08); }
-.k-float-shape.s4 { bottom: 20%; right: 8%; animation-delay: 3.5s; font-size: 3.8rem; color: rgba(245, 158, 11, 0.09); }
-.k-float-shape.s5 { top: 48%; left: 2%; animation-delay: 1s; font-size: 2.8rem; color: rgba(139, 92, 246, 0.08); }
-.k-float-shape.s6 { bottom: 5%; right: 30%; animation-delay: 2s; font-size: 4rem; color: rgba(99, 102, 241, 0.07); }
 
-@keyframes floatShapes {
-  0% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-16px) rotate(8deg); }
-  100% { transform: translateY(0) rotate(-4deg); }
+.k-glow-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(85px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.k-glow-orb.orb-1 {
+  width: 520px;
+  height: 520px;
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.18) 0%, rgba(249, 115, 22, 0.12) 60%, transparent 80%);
+  top: -120px;
+  left: -100px;
+}
+.k-glow-orb.orb-2 {
+  width: 620px;
+  height: 620px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(139, 92, 246, 0.14) 60%, transparent 80%);
+  top: -60px;
+  right: -100px;
+}
+.k-glow-orb.orb-3 {
+  width: 580px;
+  height: 580px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.16) 0%, rgba(14, 165, 233, 0.12) 60%, transparent 80%);
+  bottom: -100px;
+  left: 28%;
 }
 
 /* Lobby Topbar */
@@ -286,60 +300,66 @@
   align-items: center;
   position: relative;
   z-index: 10;
-  margin-bottom: 22px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(12px);
-  padding: 12px 24px;
-  border-radius: 18px;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  padding: 14px 28px;
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
 }
 
 .k-lobby-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .k-brand-badge {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
   background: linear-gradient(135deg, #4f46e5, #7c3aed);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.4rem;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+  font-size: 1.5rem;
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35);
+  transform: rotate(-3deg);
+  transition: transform 0.2s ease;
+}
+.k-brand-badge:hover {
+  transform: rotate(4deg) scale(1.05);
 }
 
 .k-brand-title {
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-size: 1.4rem;
+  font-weight: 900;
   color: #0f172a;
   line-height: 1.1;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
 .k-brand-subtitle {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 .k-lobby-top-actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
 }
 
 .k-difficulty-picker {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .k-picker-label {
@@ -349,49 +369,57 @@
 }
 
 .k-select {
-  padding: 8px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border-color);
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1.5px solid #cbd5e1;
   background: #ffffff;
-  font-weight: 700;
-  font-size: 0.9rem;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 0.92rem;
   color: #1e293b;
   cursor: pointer;
   outline: none;
-  transition: border-color 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+  transition: all 0.15s ease;
 }
 .k-select:focus {
   border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
 }
 
 .k-chat-btn {
   background: #ffffff;
-  border: 1px solid var(--border-color);
-  padding: 8px 16px;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 700;
+  border: 1.5px solid #cbd5e1;
+  padding: 10px 18px;
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 800;
   color: #334155;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
 }
 .k-chat-btn:hover {
-  background: #f1f5f9;
+  background: #f8fafc;
+  transform: translateY(-1px);
 }
 
-/* Hero Banner */
+/* Hero Banner - Game Show Console Card */
 .k-hero-banner {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 28px;
-  background: #ffffff;
-  border: 1px solid var(--border-color);
-  border-radius: 24px;
-  padding: 24px 30px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+  gap: 32px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(226, 232, 240, 0.9);
+  border-radius: 28px;
+  padding: 26px 36px;
+  box-shadow:
+    0 20px 45px -15px rgba(30, 41, 59, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.03);
   position: relative;
   z-index: 10;
   margin-bottom: 24px;
@@ -402,23 +430,30 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  background: #f8fafc;
-  padding: 12px;
-  border-radius: 18px;
-  border: 1.5px solid #e2e8f0;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  gap: 10px;
+  background: linear-gradient(145deg, #ffffff, #f8fafc);
+  padding: 14px;
+  border-radius: 22px;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+}
+.k-qr-card:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 28px rgba(99, 102, 241, 0.12);
+  border-color: #cbd5e1;
 }
 
 .k-qr-frame {
-  width: 135px;
-  height: 135px;
+  width: 140px;
+  height: 140px;
   background: #ffffff;
-  border-radius: 10px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 .k-qr-img {
@@ -428,9 +463,9 @@
 }
 
 .k-qr-hint {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #475569;
   text-align: center;
 }
 
@@ -438,35 +473,39 @@
 .k-join-info {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .k-join-eyebrow {
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.82rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .k-url-pill {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  background: #f1f5f9;
+  gap: 14px;
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
   border: 2px solid #cbd5e1;
-  padding: 10px 18px;
-  border-radius: 14px;
+  padding: 10px 20px;
+  border-radius: 18px;
   width: fit-content;
   max-width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
 }
 
 .k-url-address {
   font-family: 'Consolas', 'Courier New', monospace;
-  font-size: 1.35rem;
-  font-weight: 800;
+  font-size: 1.4rem;
+  font-weight: 900;
   color: #1e1b4b;
   letter-spacing: 0.02em;
   user-select: all;
@@ -475,22 +514,31 @@
 
 .k-btn-copy {
   background: #ffffff;
-  color: #334155;
-  border: 1px solid #cbd5e1;
-  padding: 6px 14px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  font-weight: 700;
+  color: #1e293b;
+  border: 1.5px solid #cbd5e1;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
   white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 .k-btn-copy:hover {
-  background: #e2e8f0;
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+.k-btn-copy:active {
+  transform: translateY(1px);
 }
 
 .k-wifi-note {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: #64748b;
   margin: 0;
 }
@@ -500,91 +548,105 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  min-width: 220px;
+  gap: 12px;
+  min-width: 240px;
 }
 
 .k-player-counter {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
-  padding: 6px 16px;
-  border-radius: 20px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border: 1.5px solid #bfdbfe;
+  padding: 8px 20px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
 }
 
-.k-counter-icon { font-size: 1.1rem; }
+.k-counter-icon { font-size: 1.25rem; }
 .k-counter-num {
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 900;
-  color: #2563eb;
+  color: #1d4ed8;
 }
 .k-counter-label {
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.85rem;
+  font-weight: 800;
   color: #1e40af;
 }
 
-/* Big Kahoot Start Button */
+/* Big Juicy 3D Arcade Start Button */
 .k-btn-start {
   width: 100%;
-  padding: 16px 28px;
-  font-size: 1.15rem;
-  font-weight: 800;
+  padding: 16px 32px;
+  font-family: inherit;
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
   color: #ffffff;
   background: #94a3b8;
   border: none;
-  border-radius: 16px;
+  border-radius: 20px;
   cursor: not-allowed;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  box-shadow: 0 4px 0 #64748b;
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  gap: 12px;
+  box-shadow: 0 5px 0 #64748b;
+  transform: translateY(0);
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease, background 0.2s ease;
 }
 
 .k-btn-start.ready {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  box-shadow: 0 6px 0 #047857, 0 10px 24px rgba(16, 185, 129, 0.4);
+  background: linear-gradient(180deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 6px 0 #047857, 0 12px 28px rgba(16, 185, 129, 0.35);
   cursor: pointer;
-  animation: readyPulse 2s infinite;
 }
 
 .k-btn-start.ready:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 0 #047857, 0 14px 28px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 8px 0 #047857, 0 16px 32px rgba(16, 185, 129, 0.45);
 }
 
 .k-btn-start.ready:active {
   transform: translateY(4px);
-  box-shadow: 0 2px 0 #047857;
+  box-shadow: 0 2px 0 #047857, 0 4px 12px rgba(16, 185, 129, 0.3);
 }
 
 @keyframes readyPulse {
-  0%, 100% { box-shadow: 0 6px 0 #047857, 0 10px 24px rgba(16, 185, 129, 0.4); }
-  50% { box-shadow: 0 6px 0 #047857, 0 14px 32px rgba(16, 185, 129, 0.6); }
+  0%, 100% {
+    box-shadow: 0 6px 0 #047857, 0 12px 28px rgba(16, 185, 129, 0.35);
+  }
+  50% {
+    box-shadow: 0 6px 0 #047857, 0 16px 36px rgba(16, 185, 129, 0.6);
+  }
+}
+
+.k-btn-start.ready {
+  animation: readyPulse 2.2s infinite;
 }
 
 .k-start-hint {
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: #64748b;
   text-align: center;
 }
 
-/* The Kahoot Name Wall (Roster) */
+/* The Kahoot Name Wall (Roster of Joined Players) */
 .k-name-wall-container {
   flex: 1;
-  background: #ffffff;
-  border: 1px solid var(--border-color);
-  border-radius: 24px;
-  padding: 24px 30px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(226, 232, 240, 0.9);
+  border-radius: 28px;
+  padding: 28px 36px;
+  box-shadow:
+    0 20px 45px -15px rgba(30, 41, 59, 0.06),
+    0 1px 3px rgba(0, 0, 0, 0.02);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
   position: relative;
   z-index: 10;
 }
@@ -592,34 +654,36 @@
 .k-name-wall-header {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .k-wall-title-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .k-wall-title {
-  font-size: 1.3rem;
-  font-weight: 800;
+  font-size: 1.45rem;
+  font-weight: 900;
   color: #0f172a;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
 .k-wall-count {
   background: #f1f5f9;
-  color: #475569;
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 2px 10px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  color: #334155;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
 }
 
 .k-wall-sub {
-  font-size: 0.85rem;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: #64748b;
 }
 
@@ -627,67 +691,69 @@
 .k-name-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  min-height: 220px;
+  gap: 16px;
+  min-height: 240px;
   align-content: flex-start;
+  padding-top: 6px;
 }
 
-/* Player Chip in Kahoot Name Wall */
+/* Player Chip in Kahoot Name Wall - Playful Party Sticker */
 .k-player-chip {
   display: inline-flex;
   align-items: center;
   gap: 12px;
   background: var(--chip-bg, #4f46e5);
   color: #ffffff;
-  padding: 8px 18px 8px 10px;
+  padding: 8px 20px 8px 10px;
   border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  animation: kahootPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: rotate(var(--chip-rot, 0deg));
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+  animation: kahootPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   user-select: none;
   position: relative;
 }
 
 .k-player-chip:hover {
-  transform: translateY(-3px) scale(1.03);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+  transform: translateY(-4px) scale(1.06) rotate(0deg);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  z-index: 20;
 }
 
 .k-chip-avatar {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.28);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.15rem;
-  font-weight: 900;
-  color: #ffffff;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  font-size: 1.4rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15));
 }
 
 .k-chip-name {
-  font-size: 1.1rem;
-  font-weight: 800;
+  font-size: 1.15rem;
+  font-weight: 900;
   letter-spacing: 0.01em;
-  max-width: 180px;
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
 
 .k-chip-kick {
   background: rgba(0, 0, 0, 0.2);
   border: none;
   color: #ffffff;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 900;
   cursor: pointer;
   opacity: 0.6;
@@ -696,14 +762,14 @@
 }
 .k-chip-kick:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
   transform: scale(1.15);
 }
 
 @keyframes kahootPop {
-  0% { transform: scale(0.3) translateY(20px); opacity: 0; }
-  70% { transform: scale(1.08) translateY(-4px); opacity: 1; }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
+  0% { transform: scale(0.3) translateY(24px) rotate(0deg); opacity: 0; }
+  70% { transform: scale(1.08) translateY(-4px) rotate(var(--chip-rot, 0deg)); opacity: 1; }
+  100% { transform: scale(1) translateY(0) rotate(var(--chip-rot, 0deg)); opacity: 1; }
 }
 
 /* Empty Roster State */
@@ -719,20 +785,36 @@
 }
 
 .k-empty-icon {
-  font-size: 4rem;
-  animation: floatShapes 3s ease-in-out infinite alternate;
+  font-size: 4.5rem;
+  animation: emptyFloat 3s ease-in-out infinite alternate;
+}
+
+@keyframes emptyFloat {
+  0% { transform: translateY(0) rotate(-4deg); }
+  100% { transform: translateY(-12px) rotate(4deg); }
 }
 
 .k-empty-title {
-  font-size: 1.25rem;
-  font-weight: 800;
+  font-size: 1.35rem;
+  font-weight: 900;
   color: #1e293b;
 }
 
 .k-empty-sub {
-  font-size: 0.92rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   color: #64748b;
-  max-width: 440px;
+  max-width: 460px;
+  line-height: 1.45;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .k-btn-start.ready,
+  .k-empty-icon,
+  .k-player-chip {
+    animation: none !important;
+  }
 }
 
 /* Responsive tweaks for Host */
@@ -741,7 +823,8 @@
     grid-template-columns: 1fr;
     justify-items: center;
     text-align: center;
-    gap: 20px;
+    gap: 24px;
+    padding: 24px 20px;
   }
   .k-join-info {
     align-items: center;
