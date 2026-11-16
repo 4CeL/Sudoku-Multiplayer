@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Sudoku Multiplayer Race</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="player-body">
+
+  <!-- ================================================= -->
+  <!-- 1. KAHOOT-STYLE JOIN PAGE (Dedicated Screen)      -->
+  <!-- ================================================= -->
+  <section id="joinModal" class="kahoot-player-page join-page">
+    <div class="k-floating-shapes" aria-hidden="true">
+      <span class="k-float-shape s1">▲</span>
+      <span class="k-float-shape s2">●</span>
+      <span class="k-float-shape s3">◼</span>
+      <span class="k-float-shape s4">◆</span>
+    </div>
+
+    <div class="kahoot-join-box">
+      <div class="k-player-logo">
+        <span class="k-logo-lightning">⚡</span>
+      </div>
+      <h1 class="k-player-title">Sudoku Race</h1>
+      <p class="k-player-subtitle">Kompetisi Sudoku Multiplayer Real-Time</p>
+
+      <div class="k-input-group">
+        <label for="nicknameInput" class="k-input-label">Nickname Kamu</label>
+        <input type="text" id="nicknameInput" class="k-nickname-input" placeholder="Ketik nama kamu di sini..." maxlength="15" autocomplete="off" autofocus>
+        <button id="btnJoin" class="k-btn-join">
+          <span>Masuk ke Game</span>
+          <span class="k-arrow">➔</span>
+        </button>
+      </div>
+
+      <div class="k-join-footer-card">
+        <div class="k-pill-item">🎯 Soal sama serentak</div>
+        <div class="k-pill-item">⏱️ Tercepat menang</div>
+        <div class="k-pill-item">❌ Batas 3 kesalahan</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================= -->
+  <!-- 2. KAHOOT-STYLE WAITING LOBBY (Dedicated Screen)  -->
+  <!-- ================================================= -->
+  <section id="lobbyScreen" class="kahoot-player-page lobby-page" style="display: none;">
+    <div class="k-floating-shapes" aria-hidden="true">
+      <span class="k-float-shape s1">▲</span>
+      <span class="k-float-shape s2">●</span>
+      <span class="k-float-shape s3">◼</span>
+      <span class="k-float-shape s4">◆</span>
+    </div>
+
+    <div class="k-player-lobby-content">
+      <!-- Top header with brand & chat -->
+      <div class="k-p-topbar">
+        <div class="k-p-brand">
+          <span class="k-p-brand-icon">⚡</span>
+          <span class="k-p-brand-text">Sudoku Race</span>
+        </div>
+        <button class="chat-toggle k-p-chat-toggle" aria-label="Buka chat">
+          💬 Chat<span class="chat-badge" style="display: none;">0</span>
+        </button>
+      </div>
+
+      <!-- "You're In" Hero Card -->
+      <div class="k-youre-in-card">
+        <div id="playerAvatarHero" class="k-player-avatar-hero">?</div>
+        <div class="k-in-badge">Kamu sudah bergabung! 🎉</div>
+        <h2 id="playerNameHero" class="k-player-name-hero">Pemain</h2>
+        <p class="k-in-subtext">Lihat namamu tampil di layar Host! 👀</p>
+
+        <div class="k-waiting-indicator">
+          <span class="k-pulse-circle"></span>
+          <span class="k-waiting-text">Menunggu host memulai permainan...</span>
+        </div>
+      </div>
+
+      <!-- Players in Room Roster -->
+      <div class="k-player-roster-card">
+        <div class="k-roster-top">
+          <span class="k-roster-heading">👥 Teman di Ruangan</span>
+          <span class="k-roster-count-pill"><span id="lobbyCount">0</span> pemain</span>
+        </div>
+        <div id="lobbyPlayers" class="k-player-chips-container">
+          <!-- Player chips injected via JS -->
+        </div>
+      </div>
+
+      <!-- Tip banner -->
+      <div class="k-tip-banner">
+        <span class="k-tip-icon">💡</span>
+        <span class="k-tip-desc">Siapkan fokus dan jarimu. Kesalahan langsung divalidasi dengan batas 3 kali salah!</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================= -->
+  <!-- 3. OVERLAYS (Countdown, Game Over, Result, Chat)  -->
+  <!-- ================================================= -->
+
+  <!-- Countdown Overlay -->
+  <div id="countdownModal" class="modal-overlay" style="display: none;">
+    <div id="countdownDisplay" class="countdown-screen">3</div>
+  </div>
+
+  <!-- Game Over: leaderboard + tombol kembali ke lobby -->
+  <div id="gameOverScreen" class="modal-overlay" style="display: none;">
+    <div class="modal-content gameover-content">
+      <div class="modal-title">🏁 Permainan Selesai</div>
+      <div id="gameOverBody" class="gameover-body"></div>
+      <button id="btnBackToLobby" class="btn-primary">Kembali ke Lobby</button>
+    </div>
+  </div>
+
+  <!-- Result / Winner / Elimination Modal -->
+  <div id="resultModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <div id="resultTitle" class="modal-title">🏆 Permainan Selesai!</div>
+      <p id="resultDesc" class="modal-desc"></p>
+      <div id="resultSticker" class="result-sticker" style="display: none;">
+        <img src="/img/sticker.jpg" alt="Sticker">
+        <div class="sticker-caption">Kamu hebat! 🎉</div>
+      </div>
+      <div id="rankingsTable" style="margin: 10px 0; text-align: left; max-height: 200px; overflow-y: auto;"></div>
+      <button id="btnSpectateFromResult" class="btn-primary">👀 Lihat Pemain Lain</button>
+      <button id="btnCloseResult" class="btn-secondary">Tutup</button>
+    </div>
+  </div>
+
+  <!-- Chat Panel -->
+  <div id="chatPanel" class="chat-panel" style="display: none;">
+    <div class="chat-header">
+      <span>💬 Chat</span>
+      <button id="chatClose" class="chat-close" aria-label="Tutup chat">✕</button>
+    </div>
+    <div id="chatMessages" class="chat-messages"></div>
+    <form id="chatForm" class="chat-form" autocomplete="off">
+      <input id="chatInput" class="chat-input" type="text" maxlength="200" placeholder="Tulis pesan...">
+      <button type="submit" class="chat-send">Kirim</button>
+    </form>
+  </div>
+
+  <!-- ================================================= -->
+  <!-- 4. SUDOKU GAME CONTAINER (Hidden during lobby)    -->
+  <!-- ================================================= -->
+  <main id="gameContainer" class="container" style="display: none;">
+    <header class="game-header">
+      <div class="header-left">
+        <div class="logo"><span>⚡</span>Sudoku</div>
+        <div id="gameStatus" class="status-badge">Menunggu Host...</div>
+      </div>
+      <div class="header-center">
+        <div id="gameTimer" class="timer-display">00:00</div>
+      </div>
+      <div class="header-right">
+        <div class="strikes-badge">
+          <span class="strike-icon">❌</span>
+          <span class="strike-label">Kesalahan:</span>
+          <span id="mistakeDisplay">0/3</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Live Leaderboard -->
+    <div class="leaderboard-panel">
+      <div class="leaderboard-header">
+        <span class="leaderboard-title">🏆 Leaderboard</span>
+        <span id="leaderboardCount" class="leaderboard-count">0 pemain</span>
+      </div>
+      <div id="leaderboardBody" class="leaderboard-body">
+        <!-- Rows injected via JS -->
+      </div>
+    </div>
+
+    <!-- Sudoku Board -->
+    <div class="sudoku-container">
+      <div id="sudokuGrid" class="sudoku-board">
+        <!-- 81 cells injected via JS -->
+      </div>
+
+      <!-- Mode penonton: muncul setelah pemain gugur / selesai -->
+      <div id="spectateBar" class="spectate-bar" style="display: none;">
+        <button id="btnSpecPrev" class="spec-btn" aria-label="Pemain sebelumnya">◀</button>
+        <div class="spec-info">
+          <div id="specName" class="spec-name">Papan kamu</div>
+          <div id="specMeta" class="spec-meta"></div>
+        </div>
+        <button id="btnSpecNext" class="spec-btn" aria-label="Pemain berikutnya">▶</button>
+      </div>
+
+      <div class="tools-row">
+        <button class="tool-btn chat-toggle" style="display: none;" aria-label="Buka chat">💬 Chat<span class="chat-badge" style="display: none;">0</span></button>
+        <button id="btnNotes" class="tool-btn" title="Mode catatan (tombol N)">✏️ Catatan: <b id="notesState">OFF</b></button>
+      </div>
+
+      <!-- Touch / Click Numpad with Remaining Counts -->
+      <div class="numpad">
+        <button class="num-btn" data-val="1">
+          <span class="num-val">1</span>
+          <span class="num-sub" id="rem-1">9</span>
+        </button>
+        <button class="num-btn" data-val="2">
+          <span class="num-val">2</span>
+          <span class="num-sub" id="rem-2">9</span>
+        </button>
+        <button class="num-btn" data-val="3">
+          <span class="num-val">3</span>
+          <span class="num-sub" id="rem-3">9</span>
+        </button>
+        <button class="num-btn" data-val="4">
+          <span class="num-val">4</span>
+          <span class="num-sub" id="rem-4">9</span>
+        </button>
+        <button class="num-btn" data-val="5">
+          <span class="num-val">5</span>
+          <span class="num-sub" id="rem-5">9</span>
+        </button>
+        <button class="num-btn" data-val="6">
+          <span class="num-val">6</span>
+          <span class="num-sub" id="rem-6">9</span>
+        </button>
+        <button class="num-btn" data-val="7">
+          <span class="num-val">7</span>
+          <span class="num-sub" id="rem-7">9</span>
+        </button>
+        <button class="num-btn" data-val="8">
+          <span class="num-val">8</span>
+          <span class="num-sub" id="rem-8">9</span>
+        </button>
+        <button class="num-btn" data-val="9">
+          <span class="num-val">9</span>
+          <span class="num-sub" id="rem-9">9</span>
+        </button>
+        <button class="num-btn action-btn" data-action="erase">
+          <span class="num-val">⌫</span>
+          <span class="num-sub">Hapus</span>
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/chat.js"></script>
+  <script src="/js/player.js"></script>
+</body>
+</html>

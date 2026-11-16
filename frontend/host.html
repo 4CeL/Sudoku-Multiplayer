@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host & Spectator Dashboard - Sudoku Multiplayer</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/host.css">
+</head>
+<body class="host-body">
+
+  <!-- Chat -->
+  <button class="chat-toggle chat-fab" style="display: none;" aria-label="Buka chat">
+    💬<span class="chat-badge" style="display: none;">0</span>
+  </button>
+  <div id="chatPanel" class="chat-panel" style="display: none;">
+    <div class="chat-header">
+      <span>💬 Chat</span>
+      <button id="chatClose" class="chat-close" aria-label="Tutup chat">✕</button>
+    </div>
+    <div id="chatMessages" class="chat-messages"></div>
+    <form id="chatForm" class="chat-form" autocomplete="off">
+      <input id="chatInput" class="chat-input" type="text" maxlength="200" placeholder="Tulis pesan sebagai Host...">
+      <button type="submit" class="chat-send">Kirim</button>
+    </div>
+  </div>
+
+  <!-- ================================================= -->
+  <!-- 1. KAHOOT-STYLE HOST LOBBY VIEW (Full Page)       -->
+  <!-- ================================================= -->
+  <section id="hostLobbyView" class="kahoot-host-lobby">
+    <!-- Floating background decorative shapes -->
+    <div class="k-floating-shapes" aria-hidden="true">
+      <span class="k-float-shape s1">▲</span>
+      <span class="k-float-shape s2">●</span>
+      <span class="k-float-shape s3">◼</span>
+      <span class="k-float-shape s4">◆</span>
+      <span class="k-float-shape s5">★</span>
+      <span class="k-float-shape s6">●</span>
+    </div>
+
+    <!-- Topbar Lobby -->
+    <header class="k-lobby-topbar">
+      <div class="k-lobby-brand">
+        <span class="k-brand-badge">⚡</span>
+        <div>
+          <h1 class="k-brand-title">Sudoku Race</h1>
+          <span class="k-brand-subtitle">Lobby Pertandingan</span>
+        </div>
+      </div>
+
+      <div class="k-lobby-top-actions">
+        <div class="k-difficulty-picker">
+          <label for="lobbyDifficultySelect" class="k-picker-label">Tingkat Kesulitan:</label>
+          <select id="lobbyDifficultySelect" class="k-select">
+            <option value="easy">Mudah (~47 angka)</option>
+            <option value="medium" selected>Sedang (~37 angka)</option>
+            <option value="hard">Sulit (~29 angka)</option>
+          </select>
+        </div>
+        <button class="chat-toggle k-chat-btn" aria-label="Buka chat">
+          💬 Chat<span class="chat-badge" style="display: none;">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Hero Card: Join Info & Start Button -->
+    <div class="k-hero-banner">
+      <!-- QR Code Block -->
+      <div class="k-qr-card">
+        <div class="k-qr-frame">
+          <img id="lobbyQrCode" src="/api/qr-code" alt="Scan Barcode untuk Masuk" class="k-qr-img">
+        </div>
+        <span class="k-qr-hint">📷 Scan Barcode dengan Kamera HP</span>
+      </div>
+
+      <!-- Join URL Info -->
+      <div class="k-join-info">
+        <span class="k-join-eyebrow">Ajak pemain membuka browser di:</span>
+        <div class="k-url-pill">
+          <span id="lobbyPlayerUrlBadge" class="k-url-address">Memuat Alamat IP...</span>
+          <button id="btnCopyIpLobby" class="k-btn-copy" title="Salin Link">📋 Salin Link</button>
+        </div>
+        <p class="k-wifi-note">💡 Pastikan laptop server dan HP pemain terhubung ke Wi-Fi / Hotspot yang sama.</p>
+      </div>
+
+      <!-- Start Game Big CTA -->
+      <div class="k-start-box">
+        <div class="k-player-counter">
+          <span class="k-counter-icon">👥</span>
+          <span id="lobbyPlayerCountBadge" class="k-counter-num">0</span>
+          <span class="k-counter-label">Pemain Bergabung</span>
+        </div>
+        <button id="btnLobbyStart" class="k-btn-start" disabled>
+          <span class="k-btn-start-icon">🚀</span>
+          <span class="k-btn-start-text">Mulai Permainan</span>
+        </button>
+        <span id="lobbyStartHint" class="k-start-hint">Menunggu minimal 1 pemain bergabung...</span>
+      </div>
+    </div>
+
+    <!-- The Kahoot Name Wall (Roster of Joined Players) -->
+    <div class="k-name-wall-container">
+      <div class="k-name-wall-header">
+        <div class="k-wall-title-wrap">
+          <h2 class="k-wall-title">Pemain di Ruangan</h2>
+          <span id="lobbyRosterCount" class="k-wall-count">0 pemain</span>
+        </div>
+        <span class="k-wall-sub">Pemain yang bergabung akan langsung muncul di bawah ini secara otomatis</span>
+      </div>
+
+      <div id="lobbyPlayerGrid" class="k-name-grid">
+        <!-- Player chips pop in here via JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================= -->
+  <!-- 2. LIVE GAME VIEW (Spectator Dashboard)           -->
+  <!-- ================================================= -->
+  <div id="hostGameView" class="host-game-view" style="display: none;">
+    <!-- Top bar -->
+    <header class="host-topbar">
+      <div class="host-brand">
+        <span class="host-brand-icon">⚡</span>
+        <div>
+          <div class="host-brand-title">Sudoku Race</div>
+          <div class="host-brand-sub">Dashboard Live Spectator</div>
+        </div>
+      </div>
+
+      <div class="host-stats">
+        <div class="stat-box">
+          <span class="stat-label">Pemain</span>
+          <span id="playerCountDisplay" class="stat-value stat-accent">0</span>
+        </div>
+        <div class="stat-box">
+          <span class="stat-label">Waktu</span>
+          <span id="hostTimerDisplay" class="stat-value">00:00</span>
+        </div>
+        <div id="roomStatusText" class="status-badge host-status">Menunggu Permainan Dimulai</div>
+        <button id="btnReturnToLobby" class="btn-secondary host-return-btn" title="Kembali ke Lobby">🚪 Ke Lobby</button>
+      </div>
+    </header>
+
+    <main class="host-main">
+      <!-- Sidebar -->
+      <aside class="host-sidebar">
+        <!-- Join card mini -->
+        <section class="h-card join-card">
+          <div class="h-card-title">📱 Info Join Pemain</div>
+          <div class="join-body">
+            <div class="qr-box" title="Arahkan kamera HP ke barcode ini">
+              <img id="hostQrCode" src="/api/qr-code" alt="Scan Barcode" class="qr-img">
+            </div>
+            <div class="join-info">
+              <p class="join-hint">Alamat web untuk pemain:</p>
+              <span id="playerUrlBadge" class="ip-badge">Memuat Alamat IP...</span>
+              <button id="btnCopyIp" class="btn-secondary">Salin Link</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Controls -->
+        <section class="h-card">
+          <div class="h-card-title">🎛️ Kontrol Permainan</div>
+          <label for="difficultySelect" class="h-label">Tingkat Kesulitan</label>
+          <select id="difficultySelect" class="select-custom h-select">
+            <option value="easy">Mudah (~47 angka awal)</option>
+            <option value="medium" selected>Sedang (~37 angka awal)</option>
+            <option value="hard">Sulit (~29 angka awal)</option>
+          </select>
+          <div class="h-actions">
+            <button id="btnStartGame" class="btn-success h-start">🚀 Mulai Permainan</button>
+            <button id="btnResetGame" class="btn-secondary">🔄 Reset / Kembali ke Lobby</button>
+          </div>
+        </section>
+
+        <!-- Leaderboard -->
+        <section class="h-card host-leaderboard">
+          <div class="h-card-title">🏆 Leaderboard Live</div>
+          <div id="hostLeaderboardBody"></div>
+        </section>
+      </aside>
+
+      <!-- Live spectator stage -->
+      <section class="host-stage">
+        <div class="stage-header">
+          <h2>📺 Live Gameplay Seluruh Pemain</h2>
+          <span class="stage-count"><span id="activePlayerCount">0</span> pemain aktif</span>
+        </div>
+        <div id="spectatorGrid" class="spectator-grid">
+          <!-- Player cards with mini 9x9 boards injected via host.js -->
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/chat.js"></script>
+  <script src="/js/host.js"></script>
+</body>
+</html>
