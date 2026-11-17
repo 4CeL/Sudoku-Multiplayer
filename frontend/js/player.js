@@ -18,6 +18,122 @@ let isPlaying = false;
 let notesMode = false;
 let notes = createEmptyNotes(); // notes[r][c] = Set of numbers (hanya lokal)
 
+// Hint & boost (state dari server)
+const HINTS_BY_DIFF = { easy: 0, medium: 2, hard: 3 };
+const BOOST_LABELS = { shield: "🛡️ Perisai", heal: "❤️ Pulih", freeze: "🧊 Freeze" };
+const BOOST_NEEDS = { shield: 5, heal: 12, freeze: 20 };
+let powers = { hints_left: 0, hints_total: 0, fills: 0, boosts: [], shield: false };
+let toastTimer = null;
+
+function freshPowers(difficulty) {
+  const n = HINTS_BY_DIFF[difficulty] || 0;
+  return {
+    hints_left: n, hints_total: n, fills: 0, shield: false,
+    boosts: Object.keys(BOOST_NEEDS).map(id => ({ id, need: BOOST_NEEDS[id], status: "locked" }))
+  };
+}
+
+function showPowerToast(text) {
+  const el = document.getElementById("powerToast");
+  if (!el) return;
+  el.textContent = text;
+  el.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.display = "none"; }, 2500);
+}
+
+function renderPowers() {
+  const hintBtn = document.getElementById("btnHint");
+  if (hintBtn) {
+    document.getElementById("hintCount").textContent = powers.hints_left;
+    hintBtn.style.display = powers.hints_total > 0 ? "" : "none";
+    hintBtn.disabled = powers.hints_left <= 0;
+  }
+  document.querySelectorAll(".boost-btn").forEach(btn => {
+    const b = (powers.boosts || []).find(x => x.id === btn.dataset.boost);
+    if (!b) return;
+    btn.classList.remove("locked", "ready", "used");
+    btn.classList.add(b.status);
+    btn.classList.toggle("active-shield", b.id === "shield" && powers.shield);
+    const need = btn.querySelector(".boost-need");
+    if (b.status === "locked") need.textContent = `${Math.min(powers.fills, b.need)}/${b.need}`;
+    else if (b.status === "used") need.textContent = "terpakai";
+    else need.textContent = "siap!";
+  });
+}
+
+function useHint() {
+  if (!isPlaying || isEliminated || isFrozen() || !selectedCell || !currentPuzzle) return;
+  const { row, col } = selectedCell;
+  if (currentPuzzle[row][col] !== 0 || powers.hints_left <= 0) return;
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ action: "use_hint", row, col }));
+  }
+}
+
+// ===== FREEZE =====
+let frozenUntil = 0; // ms (jam lokal)
+let frozenTimer = null;
+
+function isFrozen() {
+  return Date.now() < frozenUntil;
+}
+
+function startFrozen(seconds, byName) {
+  frozenUntil = Date.now() + seconds * 1000;
+  document.getElementById("frozenBy").textContent = byName ? `Dibekukan oleh ${byName}` : "Kamu dibekukan!";
+  document.getElementById("frozenOverlay").style.display = "flex";
+  const tick = () => {
+    const left = Math.ceil((frozenUntil - Date.now()) / 1000);
+    if (left <= 0) { clearFrozen(); return; }
+    document.getElementById("frozenLeft").textContent = left;
+  };
+  clearInterval(frozenTimer);
+  tick();
+  frozenTimer = setInterval(tick, 250);
+}
+
+function clearFrozen() {
+  frozenUntil = 0;
+  clearInterval(frozenTimer);
+  frozenTimer = null;
+  document.getElementById("frozenOverlay").style.display = "none";
+}
+
+function openFreezePicker() {
+  const list = document.getElementById("freezeList");
+  const targets = Object.values(allPlayers).filter(p => p.id !== playerId && !p.eliminated && !p.finished);
+  list.innerHTML = targets.length
+    ? targets.map(p => `<button class="freeze-target" data-id="${escapeHtml(p.id)}">${escapeHtml(p.name)} · ${p.progress}%</button>`).join("")
+    : '<div class="freeze-empty">Tidak ada lawan yang bisa dibekukan.</div>';
+  list.querySelectorAll(".freeze-target").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ action: "use_boost", boost: "freeze", target: btn.dataset.id }));
+      }
+      closeFreezePicker();
+    });
+  });
+  document.getElementById("freezePicker").style.display = "flex";
+}
+
+function closeFreezePicker() {
+  document.getElementById("freezePicker").style.display = "none";
+}
+
+function useBoost(id) {
+  if (!isPlaying || isEliminated || isFrozen()) return;
+  const b = (powers.boosts || []).find(x => x.id === id);
+  if (!b || b.status !== "ready") return;
+  if (id === "freeze") {
+    openFreezePicker();
+    return;
+  }
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ action: "use_boost", boost: id }));
+  }
+}
+
 function createEmptyNotes() {
   return Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
 }
@@ -101,8 +217,9 @@ const btnRandomNick = document.getElementById("btnRandomNick");
 function updateHeroCard() {
   if (playerNameHero) playerNameHero.textContent = playerName || "Pemain";
   if (playerAvatarHero) {
-    const avatar = getPlayerAvatar(playerName || "player");
-    const col = getPlayerKahootColor(playerName || "player");
+    // Kunci harus sama dengan chip di daftar "Teman di Ruangan" (id pemain)
+    const avatar = getPlayerAvatar(playerId);
+    const col = getPlayerKahootColor(playerId);
     playerAvatarHero.textContent = avatar;
     playerAvatarHero.style.background = col.bg;
   }
@@ -271,7 +388,7 @@ function updateRemainingCounts() {
 }
 
 function handleInput(val) {
-  if (!isPlaying || isEliminated || !selectedCell || !currentPuzzle) return;
+  if (!isPlaying || isEliminated || isFrozen() || !selectedCell || !currentPuzzle) return;
   const { row, col } = selectedCell;
 
   // Cannot modify initial clues
@@ -577,6 +694,8 @@ btnSpectateFromResult.addEventListener("click", () => {
 // ===== AKHIR PERMAINAN =====
 
 function resetToLobbyView() {
+  clearFrozen();
+  closeFreezePicker();
   isPlaying = false;
   isEliminated = false;
   iFinished = false;
@@ -604,6 +723,8 @@ function resetToLobbyView() {
 }
 
 function showGameOver(results) {
+  clearFrozen();
+  closeFreezePicker();
   isPlaying = false;
   stopTimer();
   startTimestamp = null;
@@ -715,6 +836,8 @@ function connectWebSocket() {
         mistakeDisplay.textContent = `${mistakesCount}/3`;
         isEliminated = !!you.eliminated;
         iFinished = !!you.finished;
+        if (you.powers) { powers = you.powers; renderPowers(); }
+        if (you.frozen_remaining > 0) startFrozen(you.frozen_remaining, null);
         isPlaying = !isEliminated && !iFinished;
         renderBoard();
         startTimer(data.room_state.start_timestamp);
@@ -737,6 +860,15 @@ function connectWebSocket() {
         if (gameContainer) gameContainer.style.display = "none";
         updateHeroCard();
       }
+    }
+    else if (data.type === "slapped") {
+      playSlap(data.from_name);
+    }
+    else if (data.type === "slap_sent") {
+      spawnFloatingEmoji("\u{1F44B}", `ke ${data.target_name}`);
+    }
+    else if (data.type === "reaction") {
+      spawnFloatingEmoji(data.emoji, data.name);
     }
     else if (data.type === "game_over") {
       showGameOver(data.results);
@@ -771,6 +903,9 @@ function connectWebSocket() {
       mistakesCount = 0;
       isEliminated = false;
       mistakeDisplay.textContent = "0/3";
+      clearFrozen();
+      powers = freshPowers(data.difficulty);
+      renderPowers();
       isPlaying = true;
       selectedCell = null;
       renderBoard();
@@ -805,6 +940,11 @@ function connectWebSocket() {
 
       updateHighlights();
       updateRemainingCounts();
+      if (data.powers) { powers = data.powers; renderPowers(); }
+      if (data.shielded) showPowerToast("🛡️ Perisai menahan kesalahan!");
+      if (data.earned && data.earned.length) {
+        showPowerToast("🎁 Boost baru: " + data.earned.map(b => BOOST_LABELS[b]).join(", "));
+      }
 
       if (eliminated) {
         isEliminated = true;
@@ -813,6 +953,23 @@ function connectWebSocket() {
         gameStatus.textContent = "💀 Tereliminasi";
         gameStatus.className = "status-badge danger";
         showEliminationModal();
+      }
+    }
+    else if (data.type === "boost_result") {
+      currentBoard = data.board.map(r => r.slice());
+      wrongCells = new Set(data.wrong_cells || []);
+      mistakesCount = data.mistakes;
+      mistakeDisplay.textContent = `${mistakesCount}/3`;
+      powers = data.powers;
+      renderBoard();
+      renderPowers();
+      if (data.boost !== "freeze") showPowerToast(BOOST_LABELS[data.boost] + " dipakai");
+    }
+    else if (data.type === "player_frozen") {
+      if (data.player_id === playerId) {
+        startFrozen(data.seconds, data.by_name);
+      } else if (data.by_name === playerName) {
+        showPowerToast(`🧊 ${data.name} dibekukan ${data.seconds} detik`);
       }
     }
     else if (data.type === "player_eliminated") {
@@ -961,6 +1118,10 @@ document.querySelectorAll(".num-btn").forEach(btn => {
 });
 
 btnNotes.addEventListener("click", () => setNotesMode(!notesMode));
+document.getElementById("btnHint").addEventListener("click", useHint);
+document.getElementById("btnSlapCancel").addEventListener("click", closeSlapPicker);
+document.getElementById("btnFreezeCancel").addEventListener("click", closeFreezePicker);
+document.querySelectorAll(".boost-btn").forEach(b => b.addEventListener("click", () => useBoost(b.dataset.boost)));
 
 // Random Nickname generator & Avatar preview
 if (btnRandomNick) {
@@ -987,12 +1148,58 @@ if (nicknameInput) {
 }
 
 // Floating emoji reactions handler
-function spawnFloatingEmoji(emoji) {
+// ===== TAMPAR =====
+function openSlapPicker() {
+  const list = document.getElementById("slapList");
+  const targets = Object.values(allPlayers).filter(p => p.id !== playerId);
+  list.innerHTML = targets.length
+    ? targets.map(p => `<button class="freeze-target" data-id="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`).join("")
+    : '<div class="freeze-empty">Belum ada pemain lain di lobby.</div>';
+  list.querySelectorAll(".freeze-target").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ action: "slap", target: btn.dataset.id }));
+      }
+      closeSlapPicker();
+    });
+  });
+  document.getElementById("slapPicker").style.display = "flex";
+}
+
+function closeSlapPicker() {
+  document.getElementById("slapPicker").style.display = "none";
+}
+
+let slapTimer = null;
+function playSlap(fromName) {
+  const fx = document.getElementById("slapFx");
+  document.getElementById("slapFxText").textContent = `Ditampar ${fromName}!`;
+  fx.style.display = "none";
+  void fx.offsetWidth; // mulai ulang animasi
+  fx.style.display = "flex";
+  document.body.classList.remove("slap-shake");
+  void document.body.offsetWidth;
+  document.body.classList.add("slap-shake");
+  if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+  clearTimeout(slapTimer);
+  slapTimer = setTimeout(() => {
+    fx.style.display = "none";
+    document.body.classList.remove("slap-shake");
+  }, 1600);
+}
+
+function spawnFloatingEmoji(emoji, fromName) {
   const container = document.getElementById("floatingReactionLayer");
   if (!container) return;
   const el = document.createElement("div");
   el.className = "floating-emoji-item";
   el.textContent = emoji;
+  if (fromName) {
+    const label = document.createElement("span");
+    label.className = "floating-emoji-name";
+    label.textContent = fromName;
+    el.appendChild(label);
+  }
   const randomX = Math.floor(Math.random() * 70) + 15;
   el.style.left = `${randomX}%`;
   container.appendChild(el);
@@ -1003,11 +1210,14 @@ function spawnFloatingEmoji(emoji) {
 
 document.querySelectorAll(".k-btn-hype").forEach(btn => {
   btn.addEventListener("click", () => {
+    if (btn.dataset.action === "slap") { openSlapPicker(); return; }
     const emoji = btn.dataset.emoji || "🔥";
     spawnFloatingEmoji(emoji);
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ action: "reaction", emoji }));
+    }
   });
 });
-
 Chat.init(playerId, (text) => {
   if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify({ action: "chat", text }));

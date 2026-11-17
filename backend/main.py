@@ -25,6 +25,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def no_cache_static(request: Request, call_next):
+    """File frontend sering berubah saat pengembangan; jangan biarkan browser memakai versi lama."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 engine = SudokuEngine()
 
 # Game Room State
@@ -179,6 +186,28 @@ async def drop_player(pid: str, websocket=None):
         p["disconnected_at"] = time.time()
         asyncio.create_task(delayed_game_over_check())
 
+def find_mentions(text: str, sender_id: str) -> dict:
+    """Cari pemain yang di-tag dengan @nama (tanpa membedakan huruf besar/kecil). Return {player_id: nama}."""
+    low = text.lower()
+    found = {}
+    for pid, p in room.players.items():
+        if pid == sender_id:
+            continue
+        token = "@" + p["name"].lower()
+        start = 0
+        while True:
+            i = low.find(token, start)
+            if i < 0:
+                break
+            end = i + len(token)
+            before_ok = i == 0 or not low[i - 1].isalnum()
+            after_ok = end == len(low) or not low[end].isalnum()
+            if before_ok and after_ok:
+                found[pid] = p["name"]
+                break
+            start = i + 1
+    return found
+
 async def post_chat(sender_id: str, name: str, text: str):
     """Simpan dan sebarkan pesan chat ke semua host & pemain."""
     text = (text or "").strip()[:200]
@@ -191,6 +220,9 @@ async def post_chat(sender_id: str, name: str, text: str):
         "text": text,
         "ts": time.time()
     }
+    mentions = find_mentions(text, sender_id)
+    entry["mentions"] = list(mentions.keys())
+    entry["mention_names"] = list(mentions.values())
     room.chat_history.append(entry)
     del room.chat_history[:-50]
     await broadcast_all(entry)
@@ -275,6 +307,203 @@ def qr_code_endpoint(request: Request):
         media_type="image/svg+xml",
         headers={"Cache-Control": "no-store"}
     )
+# ===== Hint & Boost =====
+HINTS_BY_DIFFICULTY = {"easy": 0, "medium": 2, "hard": 3}
+# (id, jumlah kotak yang harus diisi benar untuk membuka boost)
+REACTION_EMOJIS = {"🔥", "👏", "😎", "🎉"}
+FREEZE_SECONDS = 15
+BOOSTS = [("shield", 5), ("heal", 12), ("freeze", 20)]
+
+def init_powers(p: dict):
+    p["hints_left"] = HINTS_BY_DIFFICULTY.get(room.difficulty, 0)
+    p["correct_cells"] = set()   # kotak yang diisi benar oleh pemain (bukan hint)
+    p["boosts_used"] = set()
+    p["shield"] = False
+    p["frozen_until"] = 0
+
+def is_frozen(p: dict) -> bool:
+    return p.get("frozen_until", 0) > time.time()
+
+def frozen_remaining(p: dict) -> float:
+    return max(0.0, round(p.get("frozen_until", 0) - time.time(), 1))
+
+def ready_boosts(p: dict) -> set:
+    n = len(p.get("correct_cells", ()))
+    return {bid for bid, need in BOOSTS if n >= need}
+
+def powers_payload(p: dict) -> dict:
+    n = len(p.get("correct_cells", ()))
+    boosts = []
+    for bid, need in BOOSTS:
+        if bid in p.get("boosts_used", ()):
+            status = "used"
+        elif n >= need:
+            status = "ready"
+        else:
+            status = "locked"
+        boosts.append({"id": bid, "need": need, "status": status})
+    return {
+        "hints_left": p.get("hints_left", 0),
+        "hints_total": HINTS_BY_DIFFICULTY.get(room.difficulty, 0),
+        "fills": n,
+        "boosts": boosts,
+        "shield": p.get("shield", False),
+    }
+
+async def push_player_update(player_id: str, p: dict):
+    """Hitung ulang statistik dan kabari host serta pemain lain."""
+    res = engine.evaluate_board(p["board"], room.solution)
+    p["progress"] = res["progress"]
+    p["filled"] = res["filled"]
+    p["errors"] = res["errors"]
+    await broadcast_to_hosts({
+        "type": "player_board_updated",
+        "player_id": player_id,
+        "board": p["board"],
+        "wrong_cells": list(p["wrong_cells"]),
+        "progress": p["progress"],
+        "filled": p["filled"],
+        "errors": p["errors"],
+        "mistakes": p["mistakes"],
+        "eliminated": p["eliminated"]
+    })
+    await broadcast_to_players({
+        "type": "opponent_progress",
+        "player_id": player_id,
+        "name": p["name"],
+        "progress": p["progress"],
+        "mistakes": p["mistakes"],
+        "eliminated": p["eliminated"]
+    })
+    return res
+
+async def apply_move(player_id: str, player: dict, websocket, r: int, c: int, val: int, via_hint: bool = False):
+    """Terapkan isian sel (dari input pemain atau hint), lalu proses akibatnya."""
+    if not room.puzzle or room.puzzle[r][c] != 0:
+        return  # petunjuk bawaan tidak boleh diubah
+
+    before_ready = ready_boosts(player)
+    is_error = False
+    shielded = False
+    key = f"{r}_{c}"
+
+    if val == 0:
+        player["board"][r][c] = 0
+        player["wrong_cells"].discard(key)
+    else:
+        player["board"][r][c] = val
+        if val != room.solution[r][c]:
+            is_error = True
+            player["wrong_cells"].add(key)
+            if player.get("shield"):
+                player["shield"] = False
+                shielded = True
+            else:
+                player["mistakes"] = player.get("mistakes", 0) + 1
+                if player["mistakes"] >= 3:
+                    player["eliminated"] = True
+        else:
+            player["wrong_cells"].discard(key)
+            if not via_hint:
+                player["correct_cells"].add(key)
+
+    earned = [b for b in ready_boosts(player) - before_ready]
+    res = await push_player_update(player_id, player)
+
+    await websocket.send_text(json.dumps({
+        "type": "cell_result",
+        "row": r,
+        "col": c,
+        "value": val,
+        "is_error": is_error,
+        "shielded": shielded,
+        "via_hint": via_hint,
+        "mistakes": player["mistakes"],
+        "max_mistakes": 3,
+        "eliminated": player["eliminated"],
+        "wrong_cells": list(player["wrong_cells"]),
+        "earned": earned,
+        "powers": powers_payload(player)
+    }))
+
+    if player["eliminated"]:
+        await broadcast_all({
+            "type": "player_eliminated",
+            "player_id": player_id,
+            "name": player["name"],
+            "mistakes": player["mistakes"]
+        })
+        await check_game_over()
+        return
+
+    if res["is_complete"]:
+        elapsed = round(time.time() - room.start_timestamp, 2)
+        player["finished"] = True
+        player["finish_time"] = elapsed
+
+        rank = len(room.rankings) + 1
+        ranking_entry = {
+            "rank": rank,
+            "id": player_id,
+            "name": player["name"],
+            "time": elapsed,
+            "mistakes": player["mistakes"]
+        }
+        room.rankings.append(ranking_entry)
+        if not room.winner:
+            room.winner = ranking_entry
+
+        await broadcast_all({
+            "type": "player_completed",
+            "player_id": player_id,
+            "name": player["name"],
+            "time": elapsed,
+            "rank": rank,
+            "is_winner": (rank == 1),
+            "winner": room.winner,
+            "rankings": room.rankings
+        })
+        await check_game_over()
+
+async def apply_boost(player_id: str, player: dict, websocket, boost_id, target_id=None):
+    """Pakai boost yang sudah terbuka. Setiap boost hanya sekali per ronde."""
+    if boost_id not in ready_boosts(player) or boost_id in player["boosts_used"]:
+        return
+
+    if boost_id == "shield":
+        if player.get("shield"):
+            return
+        player["shield"] = True
+    elif boost_id == "heal":
+        if player.get("mistakes", 0) <= 0:
+            return  # tidak ada kesalahan yang dipulihkan, boost tidak terpakai
+        player["mistakes"] -= 1
+    elif boost_id == "freeze":
+        target = room.players.get(target_id) if isinstance(target_id, str) else None
+        if (not target or target_id == player_id or not target.get("ws")
+                or target.get("eliminated") or target.get("finished") or is_frozen(target)):
+            return  # target tidak valid, boost tidak terpakai
+        target["frozen_until"] = time.time() + FREEZE_SECONDS
+        await broadcast_all({
+            "type": "player_frozen",
+            "player_id": target_id,
+            "name": target["name"],
+            "by_name": player["name"],
+            "seconds": FREEZE_SECONDS
+        })
+    else:
+        return
+
+    player["boosts_used"].add(boost_id)
+    await push_player_update(player_id, player)
+    await websocket.send_text(json.dumps({
+        "type": "boost_result",
+        "boost": boost_id,
+        "board": player["board"],
+        "wrong_cells": list(player["wrong_cells"]),
+        "mistakes": player["mistakes"],
+        "powers": powers_payload(player)
+    }))
 # WebSocket for Host / Spectator Dashboard
 @app.websocket("/ws/host")
 async def websocket_host(websocket: WebSocket):
@@ -324,6 +553,7 @@ async def websocket_host(websocket: WebSocket):
                     p["eliminated"] = False
                     p["finished"] = False
                     p["finish_time"] = None
+                    init_powers(p)
 
                 # 3-Second countdown broadcast
                 for count in [3, 2, 1]:
@@ -370,6 +600,7 @@ async def websocket_host(websocket: WebSocket):
                     p["eliminated"] = False
                     p["finished"] = False
                     p["finish_time"] = None
+                    init_powers(p)
 
                 await broadcast_all({
                     "type": "game_reset",
@@ -444,6 +675,7 @@ async def websocket_player(websocket: WebSocket, player_id: str):
                         "finished": False,
                         "finish_time": None
                     }
+                    init_powers(room.players[player_id])
 
                 me = room.players[player_id]
 
@@ -457,7 +689,9 @@ async def websocket_player(websocket: WebSocket, player_id: str):
                         "mistakes": me.get("mistakes", 0),
                         "eliminated": me.get("eliminated", False),
                         "finished": me["finished"],
-                        "finish_time": me["finish_time"]
+                        "finish_time": me["finish_time"],
+                        "powers": powers_payload(me),
+                        "frozen_remaining": frozen_remaining(me)
                     },
                     "room_state": room.get_public_state(),
                     "puzzle": room.puzzle if room.status == "PLAYING" else None,
@@ -481,6 +715,50 @@ async def websocket_player(websocket: WebSocket, player_id: str):
                     if now - p.get("last_chat", 0) >= 0.7:
                         p["last_chat"] = now
                         await post_chat(player_id, p["name"], msg.get("text", ""))
+
+            elif action == "reaction":
+                # Reaksi emoji di lobby: teruskan ke pemain lain
+                p = room.players.get(player_id)
+                emoji = msg.get("emoji")
+                if p and emoji in REACTION_EMOJIS:
+                    now = time.time()
+                    if now - p.get("last_reaction", 0) >= 0.25:
+                        p["last_reaction"] = now
+                        payload = json.dumps({
+                            "type": "reaction",
+                            "player_id": player_id,
+                            "name": p["name"],
+                            "emoji": emoji
+                        })
+                        for pid, other in list(room.players.items()):
+                            ows = other.get("ws")
+                            if pid != player_id and ows:
+                                try:
+                                    await ows.send_text(payload)
+                                except Exception:
+                                    pass
+
+            elif action == "slap":
+                # Tampar pemain lain, hanya saat di lobby
+                p = room.players.get(player_id)
+                target_id = msg.get("target")
+                target = room.players.get(target_id) if isinstance(target_id, str) else None
+                if room.status == "LOBBY" and p and target and target_id != player_id and target.get("ws"):
+                    now = time.time()
+                    if now - p.get("last_slap", 0) >= 1.5:
+                        p["last_slap"] = now
+                        try:
+                            await target["ws"].send_text(json.dumps({
+                                "type": "slapped",
+                                "from_id": player_id,
+                                "from_name": p["name"]
+                            }))
+                            await websocket.send_text(json.dumps({
+                                "type": "slap_sent",
+                                "target_name": target["name"]
+                            }))
+                        except Exception:
+                            pass
 
             elif action == "spectate":
                 # Hanya pemain yang sudah gugur / selesai yang boleh melihat papan lain
@@ -507,130 +785,45 @@ async def websocket_player(websocket: WebSocket, player_id: str):
                     }))
 
             elif action == "cell_update":
-                if room.status != "PLAYING" or player_id not in room.players:
+                player = room.players.get(player_id)
+                if room.status != "PLAYING" or not player:
                     continue
-
-                player = room.players[player_id]
-                if player.get("eliminated") or player.get("finished"):
+                if player.get("eliminated") or player.get("finished") or is_frozen(player):
                     continue
 
                 r = msg.get("row")
                 c = msg.get("col")
                 val = msg.get("value", 0)
-
-                # Validate coordinates & value
+                if not (isinstance(r, int) and isinstance(c, int) and isinstance(val, int)):
+                    continue
                 if 0 <= r < 9 and 0 <= c < 9 and 0 <= val <= 9:
-                    # Prevent overwriting initial puzzle clues
-                    if room.puzzle and room.puzzle[r][c] == 0:
-                        is_error = False
+                    await apply_move(player_id, player, websocket, r, c, val)
 
-                        if val == 0:
-                            # Erasing cell
-                            player["board"][r][c] = 0
-                            player["wrong_cells"].discard(f"{r}_{c}")
-                        else:
-                            expected = room.solution[r][c] if room.solution else 0
-                            player["board"][r][c] = val
-                            if val != expected:
-                                is_error = True
-                                player["wrong_cells"].add(f"{r}_{c}")
-                                player["mistakes"] = player.get("mistakes", 0) + 1
-                                if player["mistakes"] >= 3:
-                                    player["eliminated"] = True
-                            else:
-                                is_error = False
-                                player["wrong_cells"].discard(f"{r}_{c}")
+            elif action == "use_hint":
+                player = room.players.get(player_id)
+                if room.status != "PLAYING" or not player:
+                    continue
+                if player.get("eliminated") or player.get("finished") or is_frozen(player):
+                    continue
+                r = msg.get("row")
+                c = msg.get("col")
+                if not (isinstance(r, int) and isinstance(c, int) and 0 <= r < 9 and 0 <= c < 9):
+                    continue
+                # Hanya sel kosong atau sel yang salah, bukan petunjuk bawaan
+                if room.puzzle[r][c] != 0 or player["board"][r][c] == room.solution[r][c]:
+                    continue
+                if player.get("hints_left", 0) <= 0:
+                    continue
+                player["hints_left"] -= 1
+                await apply_move(player_id, player, websocket, r, c, room.solution[r][c], via_hint=True)
 
-                        # Evaluate stats
-                        eval_res = engine.evaluate_board(player["board"], room.solution)
-                        player["progress"] = eval_res["progress"]
-                        player["filled"] = eval_res["filled"]
-                        player["errors"] = eval_res["errors"]
-
-                        # 1. Send instant cell result back to current player
-                        await websocket.send_text(json.dumps({
-                            "type": "cell_result",
-                            "row": r,
-                            "col": c,
-                            "value": val,
-                            "is_error": is_error,
-                            "mistakes": player["mistakes"],
-                            "max_mistakes": 3,
-                            "eliminated": player["eliminated"],
-                            "wrong_cells": list(player["wrong_cells"])
-                        }))
-
-                        # 2. Update Host Spectator Screen in Real-Time!
-                        await broadcast_to_hosts({
-                            "type": "player_board_updated",
-                            "player_id": player_id,
-                            "row": r,
-                            "col": c,
-                            "value": val,
-                            "is_error": is_error,
-                            "board": player["board"],
-                            "wrong_cells": list(player["wrong_cells"]),
-                            "progress": player["progress"],
-                            "filled": player["filled"],
-                            "errors": player["errors"],
-                            "mistakes": player["mistakes"],
-                            "eliminated": player["eliminated"]
-                        })
-
-                        # 3. Broadcast progress bar percentage to other players (competitive ticker)
-                        await broadcast_to_players({
-                            "type": "opponent_progress",
-                            "player_id": player_id,
-                            "name": player["name"],
-                            "progress": player["progress"],
-                            "mistakes": player["mistakes"],
-                            "eliminated": player["eliminated"]
-                        })
-
-                        # If player is eliminated, notify all
-                        if player["eliminated"]:
-                            await broadcast_all({
-                                "type": "player_eliminated",
-                                "player_id": player_id,
-                                "name": player["name"],
-                                "mistakes": player["mistakes"]
-                            })
-                            await check_game_over()
-                            continue
-
-                        # Check if player completed correctly!
-                        if eval_res["is_complete"]:
-                            elapsed = round(time.time() - room.start_timestamp, 2)
-                            player["finished"] = True
-                            player["finish_time"] = elapsed
-
-                            rank = len(room.rankings) + 1
-                            ranking_entry = {
-                                "rank": rank,
-                                "id": player_id,
-                                "name": player["name"],
-                                "time": elapsed,
-                                "mistakes": player["mistakes"]
-                            }
-                            room.rankings.append(ranking_entry)
-
-                            # First person to solve is the winner
-                            if not room.winner:
-                                room.winner = ranking_entry
-
-                            # Notify all players and hosts
-                            await broadcast_all({
-                                "type": "player_completed",
-                                "player_id": player_id,
-                                "name": player["name"],
-                                "time": elapsed,
-                                "rank": rank,
-                                "is_winner": (rank == 1),
-                                "winner": room.winner,
-                                "rankings": room.rankings
-                            })
-                            await check_game_over()
-
+            elif action == "use_boost":
+                player = room.players.get(player_id)
+                if room.status != "PLAYING" or not player:
+                    continue
+                if player.get("eliminated") or player.get("finished") or is_frozen(player):
+                    continue
+                await apply_boost(player_id, player, websocket, msg.get("boost"), msg.get("target"))
     except WebSocketDisconnect:
         await drop_player(player_id, websocket)
     except Exception:

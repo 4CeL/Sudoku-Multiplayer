@@ -1,4 +1,4 @@
-﻿// Chat ringan yang dipakai bersama oleh halaman pemain dan host.
+// Chat ringan yang dipakai bersama oleh halaman pemain dan host.
 const Chat = (() => {
   const toggles = document.querySelectorAll(".chat-toggle");
   const badges = document.querySelectorAll(".chat-badge");
@@ -56,11 +56,42 @@ const Chat = (() => {
     input.blur();
   }
 
+  function escRe(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  // Bungkus @nama yang valid dengan sorotan
+  function formatText(msg) {
+    let html = esc(msg.text);
+    (msg.mention_names || []).forEach(n => {
+      const re = new RegExp("(^|[^\\p{L}\\p{N}])(@" + escRe(esc(n)) + ")(?![\\p{L}\\p{N}])", "giu");
+      html = html.replace(re, (_, pre, tag) => pre + '<span class="chat-mention">' + tag + '</span>');
+    });
+    return html;
+  }
+
+  let toastTimer = null;
+  function showMention(msg) {
+    let el = document.getElementById("mentionToast");
+    if (!el) {
+      el = document.createElement("button");
+      el.id = "mentionToast";
+      el.className = "mention-toast";
+      el.type = "button";
+      el.addEventListener("click", () => { el.style.display = "none"; open(); });
+      document.body.appendChild(el);
+    }
+    el.innerHTML = '<span class="mention-from">' + esc(msg.name) + ' menyebutmu</span><span class="mention-text">' + esc(msg.text) + '</span>';
+    el.style.display = "flex";
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.style.display = "none"; }, 6000);
+  }
+
   function render(msg) {
     const mine = msg.id === selfId;
     const row = document.createElement("div");
-    row.className = "chat-msg" + (mine ? " chat-mine" : "") + (msg.id === "host" ? " chat-host" : "");
-    row.innerHTML = `<span class="chat-name">${esc(msg.name)}</span><span class="chat-text">${esc(msg.text)}</span>`;
+    row.className = "chat-msg" + (mine ? " chat-mine" : "") + (msg.id === "host" ? " chat-host" : "") + ((msg.mentions || []).includes(selfId) ? " chat-tagged" : "");
+    row.innerHTML = `<span class="chat-name">${esc(msg.name)}</span><span class="chat-text">${formatText(msg)}</span>`;
     messages.appendChild(row);
     while (messages.children.length > 100) messages.removeChild(messages.firstChild);
   }
@@ -69,6 +100,7 @@ const Chat = (() => {
     render(msg);
     scrollDown();
     if (!isOpen() && msg.id !== selfId) setUnread(unread + 1);
+    if (msg.id !== selfId && (msg.mentions || []).includes(selfId)) showMention(msg);
   }
 
   function history(list) {
@@ -99,3 +131,19 @@ const Chat = (() => {
 
   return { init, add, history, show };
 })();
+
+// Update badge di semua tombol chat (FAB + tombol lain jika ada)
+function updateChatBadges(count) {
+  document.querySelectorAll('.chat-badge').forEach(el => {
+    el.textContent = count;
+    el.style.display = count > 0 ? 'block' : 'none';
+  });
+}
+
+// Toggle body class saat panel buka/tutup
+function toggleChatPanel(open) {
+  const panel = document.getElementById('chatPanel');
+  if (!panel) return;
+  panel.style.display = open ? 'flex' : 'none';
+  document.body.classList.toggle('chat-open', open);
+}

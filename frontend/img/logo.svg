@@ -1,0 +1,13 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Sudoku Race">
+  <rect width="64" height="64" rx="14" fill="#ffa602"/>
+  <rect x="10" y="10" width="44" height="44" rx="4" fill="#ffffff"/>
+  <path d="M24.7 10v44M39.3 10v44M10 24.7h44M10 39.3h44" stroke="#46178f" stroke-width="1.6" stroke-linecap="round"/>
+  <g font-family="Lexend, Arial, sans-serif" font-weight="700" font-size="13" text-anchor="middle" fill="#46178f">
+    <text x="17.3" y="21.4">5</text>
+    <text x="46.7" y="21.4" fill="#e21b3c">3</text>
+    <text x="32" y="36">9</text>
+    <text x="17.3" y="50.6" fill="#1368ce">7</text>
+    <text x="46.7" y="50.6">1</text>
+  </g>
+  <rect x="10" y="10" width="44" height="44" rx="4" fill="none" stroke="#46178f" stroke-width="2.4"/>
+</svg>

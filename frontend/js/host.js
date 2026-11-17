@@ -5,43 +5,28 @@ let currentSolution = null;
 let timerInterval = null;
 let startTimestamp = null;
 
-// Kahoot colorful tag palette
+// Warna identitas pemain (diberikan berurutan saat pemain pertama kali terlihat)
 const KAHOOT_COLORS = [
-  { bg: "#e21b3c", text: "#fff" }, // Red
-  { bg: "#1368ce", text: "#fff" }, // Blue
-  { bg: "#26890c", text: "#fff" }, // Green
-  { bg: "#d89e00", text: "#fff" }, // Yellow/Gold
-  { bg: "#864cbf", text: "#fff" }, // Purple
-  { bg: "#009999", text: "#fff" }, // Teal
-  { bg: "#e65c00", text: "#fff" }, // Orange
-  { bg: "#e91e63", text: "#fff" }  // Pink
+  { bg: "#1368CE", shadow: "#0D4A94", text: "#fff" }, // biru
+  { bg: "#26890C", shadow: "#1A5E08", text: "#fff" }, // hijau
+  { bg: "#EB670F", shadow: "#B34B07", text: "#fff" }, // oranye
+  { bg: "#E21B3C", shadow: "#9E1129", text: "#fff" }, // merah
+  { bg: "#D91E85", shadow: "#96125B", text: "#fff" }, // pink
+  { bg: "#0AA3A3", shadow: "#066E6E", text: "#fff" }  // toska
 ];
+const playerColorIndex = {};
+let nextColorIndex = 0;
 
-const GAME_AVATARS = [
-  "🦊", "🐼", "🐯", "🦁", "🚀", "⚡", "🥑", "🎮",
-  "🦄", "🍕", "🎯", "👾", "🐸", "🐨", "🔥", "💎", "⭐", "🐙"
-];
-
-function getPlayerKahootColor(nameOrId) {
-  let hash = 0;
-  const str = String(nameOrId || "player");
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return KAHOOT_COLORS[Math.abs(hash) % KAHOOT_COLORS.length];
+function getPlayerKahootColor(id) {
+  const key = String(id || "player");
+  if (!(key in playerColorIndex)) playerColorIndex[key] = nextColorIndex++;
+  return KAHOOT_COLORS[playerColorIndex[key] % KAHOOT_COLORS.length];
 }
-
+// Avatar = huruf pertama nama
 function getPlayerAvatar(nameOrId) {
-  let hash = 0;
-  const str = String(nameOrId || "player");
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return GAME_AVATARS[Math.abs(hash) % GAME_AVATARS.length];
+  const ch = String(nameOrId || "?").trim().charAt(0);
+  return (ch || "?").toUpperCase();
 }
-
 // DOM Elements - Views
 const hostLobbyView = document.getElementById("hostLobbyView");
 const hostGameView = document.getElementById("hostGameView");
@@ -87,7 +72,7 @@ function copyUrlAction(btnElement, targetBadge) {
   const url = (targetBadge && targetBadge.textContent) ? targetBadge.textContent : `http://${window.location.host}`;
   navigator.clipboard.writeText(url).then(() => {
     const prevText = btnElement.textContent;
-    btnElement.textContent = "✓ Tersalin!";
+    btnElement.textContent = "Tersalin";
     setTimeout(() => {
       btnElement.textContent = prevText;
     }, 2000);
@@ -164,16 +149,15 @@ function renderLobbyRoster() {
   if (count === 0) {
     lobbyPlayerGrid.innerHTML = `
       <div class="k-empty-roster">
-        <div class="k-empty-icon">🛋️</div>
-        <div class="k-empty-title">Panggung Masih Sepi Nih...</div>
-        <div class="k-empty-sub">Ajak teman-teman scan barcode atau buka link di atas untuk bertanding serentak!</div>
+        <div class="k-empty-title">Belum ada pemain</div>
+        <div class="k-empty-sub">Minta pemain scan barcode atau buka alamat di atas untuk bergabung.</div>
       </div>
     `;
     if (btnLobbyStart) {
       btnLobbyStart.disabled = true;
       btnLobbyStart.classList.remove("ready");
     }
-    if (lobbyStartHint) lobbyStartHint.textContent = "Menunggu minimal 1 pemain bergabung...";
+    if (lobbyStartHint) lobbyStartHint.textContent = "Menunggu minimal 1 pemain bergabung.";
     return;
   }
 
@@ -183,20 +167,17 @@ function renderLobbyRoster() {
     btnLobbyStart.classList.add("ready");
   }
   if (lobbyStartHint) {
-    lobbyStartHint.textContent = `🚀 Gas! ${count} pemain sudah siap di arena. Klik untuk mulai!`;
+    lobbyStartHint.textContent = `${count} pemain siap. Klik tombol di atas untuk mulai.`;
   }
 
-  const ROTATIONS = [-1.5, 1.2, -0.8, 1.8, -1.2, 0.9];
-
-  lobbyPlayerGrid.innerHTML = players.map((p, idx) => {
+  lobbyPlayerGrid.innerHTML = players.map((p) => {
     const col = getPlayerKahootColor(p.id || p.name);
-    const avatar = getPlayerAvatar(p.id || p.name);
-    const rot = ROTATIONS[idx % ROTATIONS.length];
+    const avatar = getPlayerAvatar(p.name);
     return `
-      <div class="k-player-chip" style="--chip-bg: ${col.bg}; --chip-rot: ${rot}deg;" data-pid="${p.id}">
+      <div class="k-player-chip" style="--chip-bg: ${col.bg}; --chip-shadow: ${col.shadow};" data-pid="${p.id}">
         <span class="k-chip-avatar">${avatar}</span>
         <span class="k-chip-name">${escapeHtml(p.name)}</span>
-        <button class="k-chip-kick" title="Keluarkan ${escapeHtml(p.name)}" onclick="kickPlayer('${p.id}')">✕</button>
+        <button class="k-chip-kick" title="Keluarkan ${escapeHtml(p.name)}" onclick="kickPlayer('${p.id}')">&times;</button>
       </div>
     `;
   }).join("");
@@ -341,7 +322,7 @@ function renderHostLeaderboard() {
 
   body.innerHTML = sorted.map((p, idx) => {
     const rank = idx + 1;
-    const medal = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
+    const medal = `${rank}`;
     const mistakes = Math.min(p.mistakes || 0, 3);
     const progress = p.finished ? 100 : (p.progress || 0);
     let status = `${progress}%`;
@@ -349,15 +330,15 @@ function renderHostLeaderboard() {
     let barClass = "";
     let rowClass = "lb-row";
     if (p.finished) {
-      status = `🏁 ${p.finish_time}s`; statusClass = "lb-finished"; barClass = "lb-bar-done";
+      status = `${p.finish_time}s`; statusClass = "lb-finished"; barClass = "lb-bar-done";
     } else if (p.eliminated) {
-      status = "💀 Gugur"; statusClass = "lb-eliminated"; barClass = "lb-bar-dead"; rowClass += " lb-row-eliminated";
+      status = "Gugur"; statusClass = "lb-eliminated"; barClass = "lb-bar-dead"; rowClass += " lb-row-eliminated";
     }
     return `<div class="${rowClass}">
       <span class="lb-rank">${medal}</span>
       <span class="lb-name">${escapeHtml(p.name)}</span>
       <div class="lb-bar-wrap"><div class="lb-bar ${barClass}" style="width: ${progress}%"></div></div>
-      <span class="lb-strikes">${"✖".repeat(mistakes)}<span class="lb-strike-empty">${"○".repeat(3 - mistakes)}</span></span>
+      <span class="lb-strikes">${"×".repeat(mistakes)}<span class="lb-strike-empty">${"·".repeat(3 - mistakes)}</span></span>
       <span class="lb-status ${statusClass}">${status}</span>
     </div>`;
   }).join("");
@@ -427,6 +408,9 @@ function renderPlayerCard(player) {
     card.className = "spectator-card";
     spectatorGrid.appendChild(card);
   }
+  const pcol = getPlayerKahootColor(player.id);
+  card.style.setProperty("--pc", pcol.bg);
+  card.style.setProperty("--pc-shadow", pcol.shadow);
 
   if (player.finished && player.finish_time) {
     card.classList.add("winner");
@@ -443,22 +427,22 @@ function renderPlayerCard(player) {
   const mistakes = player.mistakes || 0;
   const isElim = player.eliminated || false;
   const chipClass = isElim ? "strike-chip eliminated" : "strike-chip";
-  const chipText = isElim ? "💀 GUGUR (3/3)" : `❌ ${mistakes}/3 Kesalahan`;
+  const chipText = isElim ? "Gugur (3/3)" : `Salah ${mistakes}/3`;
 
   card.innerHTML = `
     <div class="spectator-header">
       <div class="player-title">
-        <span>👤 ${escapeHtml(player.name)}</span>
-        ${player.finish_time ? `<span style="font-size:0.85rem; color:#f59e0b;">(🏁 ${player.finish_time}s)</span>` : ''}
+        <span>${escapeHtml(player.name)}</span>
+        ${player.finish_time ? `<span class="pt-time">${player.finish_time}s</span>` : ''}
       </div>
       <div class="${chipClass}" id="card-strike-${player.id}">${chipText}</div>
     </div>
 
     <!-- Progress Bar -->
     <div>
-      <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:4px;">
-        <span style="color:var(--text-muted);">Progress</span>
-        <span id="card-pct-text-${player.id}" style="color:#2563eb; font-weight:700;">${player.progress || 0}% (${player.filled || 0}/81)</span>
+      <div class="card-progress-row">
+        <span>Progres</span>
+        <span id="card-pct-text-${player.id}" class="card-pct">${player.progress || 0}% (${player.filled || 0}/81)</span>
       </div>
       <div class="progress-bar-bg">
         <div class="progress-bar-fill ${player.finished ? 'finished' : (isElim ? 'eliminated' : '')}" id="card-bar-${player.id}" style="width: ${player.progress || 0}%"></div>
@@ -535,12 +519,12 @@ function updatePlayerLiveBoard(data) {
   if (strikeChip) {
     if (data.eliminated) {
       strikeChip.className = "strike-chip eliminated";
-      strikeChip.textContent = "💀 GUGUR (3/3)";
+      strikeChip.textContent = "Gugur (3/3)";
       card.classList.add("eliminated");
       if (bar) bar.className = "progress-bar-fill eliminated";
     } else {
       strikeChip.className = "strike-chip";
-      strikeChip.textContent = `❌ ${data.mistakes || 0}/3 Kesalahan`;
+      strikeChip.textContent = `Salah ${data.mistakes || 0}/3`;
     }
   }
 
@@ -577,7 +561,7 @@ function handlePlayerEliminated(data) {
     const strikeChip = document.getElementById(`card-strike-${data.player_id}`);
     if (strikeChip) {
       strikeChip.className = "strike-chip eliminated";
-      strikeChip.textContent = "💀 GUGUR (3/3)";
+      strikeChip.textContent = "Gugur (3/3)";
     }
     const bar = document.getElementById(`card-bar-${data.player_id}`);
     if (bar) bar.className = "progress-bar-fill eliminated";
@@ -598,7 +582,7 @@ function handlePlayerCompleted(data) {
     }
     const title = card.querySelector(".player-title");
     if (title) {
-      title.innerHTML = `<span>👤 ${escapeHtml(data.name)}</span> <span style="font-size:0.9rem; color:#f59e0b;">(🏆 #${data.rank} - ${data.time}s)</span>`;
+      title.innerHTML = `<span>${escapeHtml(data.name)}</span><span class="pt-time">peringkat ${data.rank}, ${data.time}s</span>`;
     }
     const bar = document.getElementById(`card-bar-${data.player_id}`);
     if (bar) {
