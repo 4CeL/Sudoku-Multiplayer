@@ -1,5 +1,7 @@
 import asyncio
 import json
+import os
+import secrets
 import socket
 import time
 from typing import Dict, Set
@@ -10,6 +12,13 @@ from pathlib import Path
 from backend.sudoku_engine import SudokuEngine
 import io
 import segno
+
+# Token akses dashboard host. Dipakai bersama oleh proses utama dan worker reload lewat env var.
+HOST_TOKEN = os.environ.get("SUDOKU_HOST_TOKEN") or secrets.token_urlsafe(9)
+os.environ["SUDOKU_HOST_TOKEN"] = HOST_TOKEN
+
+# Jeda minimal antar isian angka per pemain (detik). Menahan bot yang mengisi secepat mungkin.
+MIN_MOVE_INTERVAL = 1.5
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -83,7 +92,6 @@ class GameRoom:
             "status": self.status,
             "difficulty": self.difficulty,
             "puzzle": self.puzzle,
-            "solution": self.solution,
             "start_timestamp": self.start_timestamp,
             "winner": self.winner,
             "rankings": self.rankings,
@@ -320,6 +328,7 @@ def init_powers(p: dict):
     p["boosts_used"] = set()
     p["shield"] = False
     p["frozen_until"] = 0
+    p["last_move"] = 0
 
 def is_frozen(p: dict) -> bool:
     return p.get("frozen_until", 0) > time.time()
@@ -507,6 +516,10 @@ async def apply_boost(player_id: str, player: dict, websocket, boost_id, target_
 # WebSocket for Host / Spectator Dashboard
 @app.websocket("/ws/host")
 async def websocket_host(websocket: WebSocket):
+    token = websocket.query_params.get("token", "")
+    if not secrets.compare_digest(token.encode(), HOST_TOKEN.encode()):
+        await websocket.close(code=1008)  # ditolak sebelum menerima koneksi
+        return
     await websocket.accept()
     room.hosts.add(websocket)
 
@@ -797,6 +810,17 @@ async def websocket_player(websocket: WebSocket, player_id: str):
                 if not (isinstance(r, int) and isinstance(c, int) and isinstance(val, int)):
                     continue
                 if 0 <= r < 9 and 0 <= c < 9 and 0 <= val <= 9:
+                    if val != 0:
+                        now = time.time()
+                        wait = MIN_MOVE_INTERVAL - (now - player.get("last_move", 0))
+                        if wait > 0:
+                            await websocket.send_text(json.dumps({
+                                "type": "move_rejected",
+                                "reason": "too_fast",
+                                "wait": round(wait, 1)
+                            }))
+                            continue
+                        player["last_move"] = now
                     await apply_move(player_id, player, websocket, r, c, val)
 
             elif action == "use_hint":
@@ -839,8 +863,8 @@ if __name__ == "__main__":
     print("🎮 MULTIPLAYER SUDOKU SERVER IS RUNNING!")
     print("=" * 60)
     print(f"💻 Layar Host / Laptop Server (Spectator Dashboard):")
-    print(f"   👉 http://localhost:8000/host.html")
-    print(f"   👉 http://{local_ip}:8000/host.html")
+    print(f"   👉 http://localhost:8000/host.html?token={HOST_TOKEN}")
+    print(f"   👉 http://{local_ip}:8000/host.html?token={HOST_TOKEN}")
     print("-" * 60)
     print(f"📱 Layar Pemain (Bisa diakses dari HP / Laptop lain via Wi-Fi):")
     print(f"   👉 http://{local_ip}:8000")

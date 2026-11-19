@@ -1,3 +1,5 @@
+import os
+import secrets
 import sys
 import socket
 from pathlib import Path
@@ -24,6 +26,9 @@ def get_local_ip():
     return ip
 
 if __name__ == "__main__":
+    # Token akses dashboard host; diteruskan ke worker uvicorn lewat env var
+    host_token = os.environ.get("SUDOKU_HOST_TOKEN") or secrets.token_urlsafe(9)
+    os.environ["SUDOKU_HOST_TOKEN"] = host_token
     local_ip = get_local_ip()
     port = 8000
 
@@ -31,8 +36,8 @@ if __name__ == "__main__":
     print("🎮  SUDOKU MULTIPLAYER RACE - SERVER SIAP DIGUNAKAN!")
     print("=" * 65)
     print("💻  TAMPILAN LAPTOP SERVER (Host / Spectator Dashboard):")
-    print(f"    👉 http://localhost:{port}/host.html")
-    print(f"    👉 http://{local_ip}:{port}/host.html")
+    print(f"    👉 http://localhost:{port}/host.html?token={host_token}")
+    print(f"    👉 http://{local_ip}:{port}/host.html?token={host_token}")
     print("-" * 65)
     print("📱  TAMPILAN SETIAP PEMAIN (Bagikan link ini ke teman se-Wi-Fi):")
     print(f"    👉 http://{local_ip}:{port}")

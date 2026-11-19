@@ -197,13 +197,41 @@ window.kickPlayer = function(pid) {
 };
 
 // WebSocket Connection
+// Token host: dari link di terminal server (?token=...), disimpan untuk sesi tab ini
+function getHostToken() {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get("token");
+  if (fromUrl) {
+    sessionStorage.setItem("sudoku_host_token", fromUrl);
+    params.delete("token");
+    const qs = params.toString();
+    history.replaceState(null, "", window.location.pathname + (qs ? "?" + qs : ""));
+    return fromUrl;
+  }
+  return sessionStorage.getItem("sudoku_host_token") || "";
+}
+
+function showHostAccessError() {
+  if (document.getElementById("hostAccessError")) return;
+  const el = document.createElement("div");
+  el.id = "hostAccessError";
+  el.className = "host-access-error";
+  el.innerHTML = "<div><h2>Akses host ditolak</h2><p>Dashboard ini butuh token. Buka link host yang tercetak di terminal server (berisi <b>?token=...</b>).</p></div>";
+  document.body.appendChild(el);
+}
+
+let hostEverConnected = false;
+
 function connectHostWebSocket() {
+  const token = getHostToken();
+  if (!token) { showHostAccessError(); return; }
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const wsUrl = `${protocol}//${window.location.host}/ws/host`;
+  const wsUrl = `${protocol}//${window.location.host}/ws/host?token=${encodeURIComponent(token)}`;
 
   socket = new WebSocket(wsUrl);
 
   socket.onopen = () => {
+    hostEverConnected = true;
     if (roomStatusText) {
       roomStatusText.textContent = "Host Terhubung";
       roomStatusText.classList.add("active");
@@ -286,6 +314,12 @@ function connectHostWebSocket() {
   };
 
   socket.onclose = () => {
+    if (!hostEverConnected) {
+      // Ditolak server: token salah atau sudah kedaluwarsa, jangan coba terus
+      sessionStorage.removeItem("sudoku_host_token");
+      showHostAccessError();
+      return;
+    }
     if (roomStatusText) {
       roomStatusText.textContent = "Terputus dari server. Mencoba ulang...";
       roomStatusText.classList.remove("active");

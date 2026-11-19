@@ -861,6 +861,9 @@ function connectWebSocket() {
         updateHeroCard();
       }
     }
+    else if (data.type === "move_rejected") {
+      showPowerToast("Terlalu cepat, tunggu sebentar");
+    }
     else if (data.type === "slapped") {
       playSlap(data.from_name);
     }
